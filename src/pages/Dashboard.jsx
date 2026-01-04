@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import chessApi from '../api/chess.api';
+import GameCard from '../components/Dashboard/GameCard';
 
 const Dashboard = () => {
     const { currentUser, logout } = useAuth();
@@ -15,10 +16,10 @@ const Dashboard = () => {
         const fetchGames = async () => {
             try {
                 const myGames = await chessApi.getMyGames();
-                setGames(myGames);
+                const gamesList = Array.isArray(myGames) ? myGames : (myGames.games || []);
+                setGames(gamesList.reverse());
             } catch (err) {
                 console.error("Failed to fetch games:", err);
-                // Don't block the UI if backend is offline, just show error
                 setError("Could not load your games. Is the backend running?");
             } finally {
                 setLoading(false);
@@ -35,7 +36,6 @@ const Dashboard = () => {
         setError(null);
         try {
             const newGame = await chessApi.createGame('white', 'medium');
-            // Assuming backend returns { game_id: "..." } or similar
             const gameId = newGame.game_id || newGame.id;
             navigate(`/game/${gameId}`);
         } catch (err) {
@@ -46,75 +46,196 @@ const Dashboard = () => {
         }
     };
 
+    // Inline styles for guaranteed rendering
+    const styles = {
+        page: {
+            minHeight: '100vh',
+            backgroundColor: '#111827',
+            padding: '48px 24px',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            color: '#f3f4f6'
+        },
+        container: {
+            maxWidth: '1200px',
+            margin: '0 auto'
+        },
+        header: {
+            textAlign: 'center',
+            marginBottom: '48px'
+        },
+        title: {
+            fontSize: '48px',
+            fontWeight: 'bold',
+            color: '#ffffff',
+            marginBottom: '8px',
+            letterSpacing: '-0.025em'
+        },
+        welcome: {
+            fontSize: '18px',
+            color: '#9ca3af',
+            marginBottom: '24px'
+        },
+        userName: {
+            color: '#e5e7eb',
+            fontWeight: '600'
+        },
+        buttonGroup: {
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '16px'
+        },
+        newGameBtn: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            backgroundColor: '#eab308',
+            color: '#000000',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            fontWeight: 'bold',
+            fontSize: '16px',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 10px 15px rgba(234, 179, 8, 0.2)',
+            transition: 'all 0.2s'
+        },
+        signOutBtn: {
+            backgroundColor: 'transparent',
+            border: '1px solid #4b5563',
+            color: '#9ca3af',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            fontWeight: '500',
+            fontSize: '16px',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+        },
+        sectionTitle: {
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#ffffff',
+            marginBottom: '24px'
+        },
+        gamesGrid: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: '24px'
+        },
+        loadingSpinner: {
+            display: 'flex',
+            justifyContent: 'center',
+            padding: '80px 0'
+        },
+        emptyState: {
+            textAlign: 'center',
+            padding: '64px 0',
+            backgroundColor: 'rgba(31, 41, 55, 0.5)',
+            border: '1px dashed #374151',
+            borderRadius: '16px'
+        }
+    };
+
     return (
-        <div className="dashboard p-6 max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold">Chess Dashboard</h1>
-                    <p className="text-gray-400">Welcome, {currentUser?.displayName || currentUser?.email}</p>
+        <div style={styles.page}>
+            <div style={styles.container}>
+
+                {/* Header Section */}
+                <div style={styles.header}>
+                    <h1 style={styles.title}>Chess Dashboard</h1>
+                    <p style={styles.welcome}>
+                        Welcome, <span style={styles.userName}>{currentUser?.displayName || currentUser?.email}</span> 👤
+                    </p>
+
+                    <div style={styles.buttonGroup}>
+                        <button
+                            onClick={handleCreateGame}
+                            disabled={creating}
+                            style={{
+                                ...styles.newGameBtn,
+                                opacity: creating ? 0.5 : 1,
+                                cursor: creating ? 'not-allowed' : 'pointer'
+                            }}
+                            onMouseOver={(e) => { if (!creating) e.currentTarget.style.backgroundColor = '#ca8a04'; }}
+                            onMouseOut={(e) => { if (!creating) e.currentTarget.style.backgroundColor = '#eab308'; }}
+                        >
+                            <span style={{ fontSize: '20px' }}>+</span> {creating ? 'Creating...' : 'New Game'}
+                        </button>
+                        <button
+                            onClick={logout}
+                            style={styles.signOutBtn}
+                            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9ca3af'; e.currentTarget.style.color = '#ffffff'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#4b5563'; e.currentTarget.style.color = '#9ca3af'; }}
+                        >
+                            ↪ Sign Out
+                        </button>
+                    </div>
                 </div>
-                <div className="flex gap-4">
-                    <button
-                        onClick={handleCreateGame}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded disabled:opacity-50"
-                        disabled={creating}
-                    >
-                        {creating ? 'Creating...' : '+ New Game'}
-                    </button>
-                    <button
-                        onClick={logout}
-                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-                    >
-                        Sign Out
-                    </button>
-                </div>
+
+                {error && (
+                    <div style={{
+                        maxWidth: '600px',
+                        margin: '0 auto 32px',
+                        backgroundColor: 'rgba(127, 29, 29, 0.3)',
+                        border: '1px solid rgba(239, 68, 68, 0.5)',
+                        color: '#fecaca',
+                        padding: '16px',
+                        borderRadius: '12px',
+                        textAlign: 'center'
+                    }}>
+                        ⚠️ {error}
+                    </div>
+                )}
+
+                {/* Section Divider */}
+                <div style={{ borderTop: '1px solid #1f2937', margin: '32px 0' }}></div>
+
+                {/* Games Section */}
+                <h2 style={styles.sectionTitle}>Your Games</h2>
+
+                {loading ? (
+                    <div style={styles.loadingSpinner}>
+                        <div style={{
+                            width: '48px',
+                            height: '48px',
+                            border: '3px solid #374151',
+                            borderTopColor: '#eab308',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                    </div>
+                ) : games.length === 0 ? (
+                    <div style={styles.emptyState}>
+                        <p style={{ color: '#9ca3af', fontSize: '18px', marginBottom: '16px' }}>No active games found.</p>
+                        <button
+                            onClick={handleCreateGame}
+                            disabled={creating}
+                            style={{ color: '#60a5fa', fontWeight: '600', background: 'none', border: 'none', cursor: 'pointer' }}
+                        >
+                            Start your first match now
+                        </button>
+                    </div>
+                ) : (
+                    <div style={styles.gamesGrid}>
+                        {games.map((game) => (
+                            <GameCard
+                                key={game.id || game.game_id}
+                                game={game}
+                                userColor="white"
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
 
-            {error && (
-                <div className="bg-red-900/50 border border-red-500 text-red-200 p-4 rounded mb-6">
-                    {error}
-                </div>
-            )}
-
-            <h2 className="text-xl font-semibold mb-4">Your Games</h2>
-
-            {loading ? (
-                <div className="text-center py-8">Loading games...</div>
-            ) : games.length === 0 ? (
-                <div className="text-center py-12 bg-gray-800 rounded">
-                    <p className="text-gray-400 mb-4">You haven't played any games yet.</p>
-                    <button
-                        onClick={handleCreateGame}
-                        className="text-blue-400 hover:underline"
-                        disabled={creating}
-                    >
-                        Start your first game
-                    </button>
-                </div>
-            ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {games.map((game) => (
-                        <Link
-                            key={game.id || game.game_id}
-                            to={`/game/${game.id || game.game_id}`}
-                            className="block bg-gray-800 p-4 rounded hover:bg-gray-700 transition"
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="font-mono text-sm text-gray-500">#{game.id || game.game_id}</span>
-                                <span className={`text-xs px-2 py-1 rounded ${game.status === 'active' ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-300'
-                                    }`}>
-                                    {game.status || 'Active'}
-                                </span>
-                            </div>
-                            <div className="text-sm text-gray-300">
-                                VS AI ({game.difficulty || 'Medium'})
-                            </div>
-                        </Link>
-                    ))}
-                </div>
-            )}
+            {/* Keyframe animation for spinner */}
+            <style>{`
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };
 
 export default Dashboard;
+

@@ -20,32 +20,85 @@ const MoveHistory = ({ history }) => {
         });
     }
 
+    const styles = {
+        container: {
+            backgroundColor: '#1f2937',
+            borderRadius: '12px',
+            padding: '16px',
+            border: '1px solid #374151',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '280px'
+        },
+        title: {
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#9ca3af',
+            marginBottom: '12px',
+            paddingBottom: '8px',
+            borderBottom: '1px solid #374151'
+        },
+        scrollArea: {
+            flex: 1,
+            overflowY: 'auto',
+            paddingRight: '8px'
+        },
+        emptyText: {
+            color: '#6b7280',
+            fontSize: '14px',
+            textAlign: 'center',
+            fontStyle: 'italic',
+            marginTop: '40px'
+        },
+        table: {
+            width: '100%',
+            fontSize: '14px',
+            textAlign: 'left',
+            borderCollapse: 'collapse'
+        },
+        th: {
+            color: '#6b7280',
+            fontWeight: '500',
+            paddingBottom: '8px',
+            fontSize: '12px'
+        },
+        tr: {
+            borderBottom: '1px solid #374151'
+        },
+        td: {
+            padding: '6px 0',
+            color: '#d1d5db',
+            fontFamily: 'monospace'
+        },
+        moveNumber: {
+            color: '#6b7280',
+            width: '30px'
+        }
+    };
+
     return (
-        <div className="bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700 flex flex-col h-[300px]">
-            <h3 className="text-gray-200 font-semibold mb-2 border-b border-gray-700 pb-2">Move History</h3>
-            <div
-                ref={scrollRef}
-                className="flex-1 overflow-y-auto space-y-1 pr-2 custom-scrollbar"
-            >
+        <div style={styles.container}>
+            <h3 style={styles.title}>Move History:</h3>
+            <div ref={scrollRef} style={styles.scrollArea}>
                 {movePairs.length === 0 ? (
-                    <div className="text-gray-500 text-sm text-center italic mt-10">
-                        Game started. White to move.
+                    <div style={styles.emptyText}>
+                        1. ...
                     </div>
                 ) : (
-                    <table className="w-full text-sm text-left">
+                    <table style={styles.table}>
                         <thead>
-                            <tr className="text-gray-500">
-                                <th className="w-10">#</th>
-                                <th className="w-24">White</th>
-                                <th>Black</th>
+                            <tr>
+                                <th style={{ ...styles.th, width: '30px' }}>#</th>
+                                <th style={{ ...styles.th, width: '80px' }}>White</th>
+                                <th style={styles.th}>Black</th>
                             </tr>
                         </thead>
                         <tbody>
                             {movePairs.map((pair) => (
-                                <tr key={pair.number} className="hover:bg-gray-700/50">
-                                    <td className="text-gray-500 py-1">{pair.number}.</td>
-                                    <td className="text-gray-300 font-mono">{pair.white.san}</td>
-                                    <td className="text-gray-300 font-mono">{pair.black ? pair.black.san : ''}</td>
+                                <tr key={pair.number} style={styles.tr}>
+                                    <td style={{ ...styles.td, ...styles.moveNumber }}>{pair.number}.</td>
+                                    <td style={styles.td}>{pair.white?.san || ''}</td>
+                                    <td style={styles.td}>{pair.black?.san || ''}</td>
                                 </tr>
                             ))}
                         </tbody>

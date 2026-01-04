@@ -1,24 +1,20 @@
 import React, { useState } from 'react';
 import { Chessboard } from 'react-chessboard';
-import { Chess } from 'chess.js';
 
-const Board = ({ game, onPieceDrop, orientation = 'white', onPieceDragBegin, onPieceDragEnd, gameOver }) => {
+const Board = ({ game, onPieceDrop, orientation = 'white', gameOver }) => {
     const [optionSquares, setOptionSquares] = useState({});
     const [rightClickedSquares, setRightClickedSquares] = useState({});
     const [moveFrom, setMoveFrom] = useState('');
 
     function getMoveOptions(square) {
-        const moves = game.moves({
-            square,
-            verbose: true,
-        });
+        const moves = game.moves({ square, verbose: true });
         if (moves.length === 0) {
             setOptionSquares({});
             return false;
         }
 
         const newSquares = {};
-        moves.map((move) => {
+        moves.forEach((move) => {
             newSquares[move.to] = {
                 background:
                     game.get(move.to) && game.get(move.to).color !== game.get(square).color
@@ -26,48 +22,33 @@ const Board = ({ game, onPieceDrop, orientation = 'white', onPieceDragBegin, onP
                         : 'radial-gradient(circle, rgba(0,0,0,.5) 25%, transparent 25%)',
                 borderRadius: '50%',
             };
-            return move;
         });
-        newSquares[square] = {
-            background: 'rgba(255, 255, 0, 0.4)',
-        };
+        newSquares[square] = { background: 'rgba(255, 255, 0, 0.4)' };
         setOptionSquares(newSquares);
         return true;
     }
 
     function onSquareClick(square) {
-        if (gameOver) return; // Disable clicks if game over
+        if (gameOver) return;
         setRightClickedSquares({});
 
-        // Click to move logic
         if (!moveFrom) {
-            const hasMoveOptions = getMoveOptions(square);
-            if (hasMoveOptions) setMoveFrom(square);
+            if (getMoveOptions(square)) setMoveFrom(square);
             return;
         }
 
-        // If clicking same piece, cancel
         if (moveFrom === square) {
             setMoveFrom('');
             setOptionSquares({});
             return;
         }
 
-        // Attempt move
-        const moveDetails = {
-            from: moveFrom,
-            to: square,
-            promotion: 'q',
-        };
-
         const result = onPieceDrop(moveFrom, square);
         if (result) {
             setMoveFrom('');
             setOptionSquares({});
         } else {
-            // Failed move - if clicked another own piece, switch selection
-            const hasMoveOptions = getMoveOptions(square);
-            if (hasMoveOptions) setMoveFrom(square);
+            if (getMoveOptions(square)) setMoveFrom(square);
             else {
                 setMoveFrom('');
                 setOptionSquares({});
@@ -79,17 +60,87 @@ const Board = ({ game, onPieceDrop, orientation = 'white', onPieceDragBegin, onP
         const colour = 'rgba(0, 0, 255, 0.4)';
         setRightClickedSquares({
             ...rightClickedSquares,
-            [square]:
-                rightClickedSquares[square] && rightClickedSquares[square].backgroundColor === colour
-                    ? undefined
-                    : { backgroundColor: colour },
+            [square]: rightClickedSquares[square]?.backgroundColor === colour ? undefined : { backgroundColor: colour },
         });
     }
 
+    const styles = {
+        boardContainer: {
+            position: 'relative',
+            width: '100%',
+            maxWidth: '560px',
+            aspectRatio: '1/1',
+            backgroundColor: '#1f2937',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            border: '1px solid #374151'
+        },
+        overlay: {
+            position: 'absolute',
+            inset: 0,
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(4px)'
+        },
+        overlayCard: {
+            backgroundColor: 'rgba(17, 24, 39, 0.95)',
+            border: '1px solid #4b5563',
+            padding: '32px',
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            maxWidth: '320px',
+            width: '100%',
+            textAlign: 'center'
+        },
+        emoji: {
+            fontSize: '48px',
+            marginBottom: '16px'
+        },
+        title: {
+            fontSize: '28px',
+            fontWeight: 'bold',
+            color: '#fbbf24',
+            marginBottom: '8px'
+        },
+        reason: {
+            color: '#9ca3af',
+            fontSize: '16px',
+            marginBottom: '24px'
+        },
+        btnPrimary: {
+            width: '100%',
+            padding: '12px 16px',
+            backgroundColor: '#3b82f6',
+            color: '#ffffff',
+            borderRadius: '10px',
+            fontWeight: '600',
+            border: 'none',
+            cursor: 'pointer',
+            marginBottom: '12px',
+            fontSize: '14px'
+        },
+        btnSecondary: {
+            width: '100%',
+            padding: '12px 16px',
+            backgroundColor: '#374151',
+            color: '#e5e7eb',
+            borderRadius: '10px',
+            fontWeight: '500',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '14px'
+        }
+    };
+
     return (
-        <div className="relative w-full max-w-[600px] aspect-square bg-gray-900 rounded-lg overflow-hidden shadow-2xl border border-gray-700">
+        <div style={styles.boardContainer}>
             <Chessboard
-                id="BasicBoard"
+                id="GameBoard"
                 position={game.fen()}
                 onPieceDrop={(source, target) => {
                     if (gameOver) return false;
@@ -100,53 +151,49 @@ const Board = ({ game, onPieceDrop, orientation = 'white', onPieceDragBegin, onP
                     }
                     return result;
                 }}
-                onPieceDragBegin={(function (piece, sourceSquare) {
+                onPieceDragBegin={(piece, sourceSquare) => {
                     if (gameOver) return;
                     getMoveOptions(sourceSquare);
-                })}
+                }}
                 onPieceDragEnd={() => setOptionSquares({})}
                 onSquareClick={onSquareClick}
                 onSquareRightClick={onSquareRightClick}
-                customSquareStyles={{
-                    ...optionSquares,
-                    ...rightClickedSquares,
-                }}
+                customSquareStyles={{ ...optionSquares, ...rightClickedSquares }}
                 boardOrientation={orientation}
-                customDarkSquareStyle={{ backgroundColor: '#779556' }}
-                customLightSquareStyle={{ backgroundColor: '#ebecd0' }}
+                customDarkSquareStyle={{ backgroundColor: '#b58863' }}
+                customLightSquareStyle={{ backgroundColor: '#f0d9b5' }}
                 animationDuration={200}
             />
 
             {/* Game Over Overlay */}
             {gameOver && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-gray-900/90 border border-gray-600 p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center transform transition-all scale-100 opacity-100">
-                        <div className="text-5xl mb-4">
+                <div style={styles.overlay}>
+                    <div style={styles.overlayCard}>
+                        <div style={styles.emoji}>
                             {gameOver.result === 'win' || gameOver.result === 'checkmate' ? '👑' : '🤝'}
                         </div>
-                        <h2 className="text-3xl font-bold text-white mb-2 font-display bg-gradient-to-r from-yellow-200 to-yellow-500 bg-clip-text text-transparent">
+                        <h2 style={styles.title}>
                             {gameOver.result === 'win' || gameOver.result === 'checkmate'
                                 ? (gameOver.winner ? `${gameOver.winner} Wins!` : 'Checkmate!')
                                 : 'Game Drawn'}
                         </h2>
-                        <p className="text-gray-300 text-lg mb-6">
-                            {gameOver.reason || 'by unknown reason'}
-                        </p>
-
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={() => window.location.href = '/'}
-                                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-900/50 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                            >
-                                Valid Games
-                            </button>
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-medium transition-all"
-                            >
-                                Rematch (Reload)
-                            </button>
-                        </div>
+                        <p style={styles.reason}>{gameOver.reason || 'Game ended'}</p>
+                        <button
+                            onClick={() => window.location.href = '/'}
+                            style={styles.btnPrimary}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
+                        >
+                            Back to Dashboard
+                        </button>
+                        <button
+                            onClick={() => window.location.reload()}
+                            style={styles.btnSecondary}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#374151'}
+                        >
+                            Rematch
+                        </button>
                     </div>
                 </div>
             )}

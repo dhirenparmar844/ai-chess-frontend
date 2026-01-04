@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import chessApi from '../api/chess.api';
 import Board from '../components/Game/Board';
@@ -8,20 +8,18 @@ import MoveHistory from '../components/Game/MoveHistory';
 
 const GamePage = () => {
     const { gameId } = useParams();
+    const navigate = useNavigate();
     const [game, setGame] = useState(new Chess());
-    const [gameState, setGameState] = useState(null); // Backend state
+    const [gameState, setGameState] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [aiThinking, setAiThinking] = useState(false);
 
-    // Initial Load
     useEffect(() => {
         const loadGame = async () => {
             try {
                 const data = await chessApi.getGame(gameId);
                 setGameState(data);
-
-                // Initialize chess.js with FEN from backend
                 const newGame = new Chess(data.fen || 'start');
                 setGame(newGame);
             } catch (err) {
@@ -32,64 +30,44 @@ const GamePage = () => {
             }
         };
 
-        if (gameId) {
-            loadGame();
-        }
+        if (gameId) loadGame();
     }, [gameId]);
 
-    // Handle Piece Drop
     const onPieceDrop = async (sourceSquare, targetSquare) => {
         if (aiThinking || (gameState && gameState.status !== 'IN_PROGRESS' && gameState.status !== 'active')) return false;
 
-        // 1. Validate move with local chess.js instance
         const gameCopy = new Chess(game.fen());
         let move = null;
 
         try {
-            move = gameCopy.move({
-                from: sourceSquare,
-                to: targetSquare,
-                promotion: 'q',
-            });
+            move = gameCopy.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
         } catch (e) {
             return false;
         }
 
         if (!move) return false;
 
-        // 2. Update local state immediately for responsiveness
         setGame(gameCopy);
-
-        // 3. Send move to backend
         setAiThinking(true);
+
         try {
-            const moveSan = move.san;
+            const playerMoveResult = await chessApi.makeMove(gameId, move.san);
+            setGameState(playerMoveResult);
 
-            // Player Move
-            const playerMoveFn = await chessApi.makeMove(gameId, moveSan);
-            setGameState(playerMoveFn); // Update state immediately (might show game over if player checkmated)
-
-            // Check if game ended after player move
-            if (playerMoveFn.status !== 'active' && playerMoveFn.status !== 'IN_PROGRESS') {
+            if (playerMoveResult.status !== 'active' && playerMoveResult.status !== 'IN_PROGRESS') {
                 setAiThinking(false);
                 return true;
             }
 
-            // AI Move
-            const updatedGameData = await chessApi.makeAiMove(gameId);
-
-            // Update local board with new FEN (including AI move)
-            if (updatedGameData && updatedGameData.fen) {
-                const updatedGame = new Chess(updatedGameData.fen);
-                setGame(updatedGame);
-                setGameState(updatedGameData);
+            const aiMoveResult = await chessApi.makeAiMove(gameId);
+            if (aiMoveResult?.fen) {
+                setGame(new Chess(aiMoveResult.fen));
+                setGameState(aiMoveResult);
             }
-
         } catch (err) {
             console.error("Move failed:", err);
             setError("Failed to process move.");
-            const revertedGame = new Chess(gameState.fen);
-            setGame(revertedGame);
+            setGame(new Chess(gameState.fen));
         } finally {
             setAiThinking(false);
         }
@@ -97,19 +75,119 @@ const GamePage = () => {
         return true;
     };
 
+    const styles = {
+        page: {
+            minHeight: '100vh',
+            backgroundColor: '#111827',
+            padding: '24px',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            color: '#f3f4f6'
+        },
+        container: {
+            maxWidth: '1200px',
+            margin: '0 auto'
+        },
+        backBtn: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 20px',
+            backgroundColor: 'transparent',
+            border: '1px solid #4b5563',
+            color: '#9ca3af',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            marginBottom: '24px',
+            fontSize: '14px',
+            fontWeight: '500',
+            transition: 'all 0.2s'
+        },
+        grid: {
+            display: 'grid',
+            gridTemplateColumns: '1fr',
+            gap: '32px'
+        },
+        boardColumn: {
+            display: 'flex',
+            justifyContent: 'center'
+        },
+        infoColumn: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+        },
+        aiThinking: {
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            color: '#93c5fd',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            textAlign: 'center',
+            fontWeight: '500'
+        },
+        resignBtn: {
+            width: '100%',
+            padding: '14px',
+            backgroundColor: 'transparent',
+            border: '1px solid #4b5563',
+            color: '#9ca3af',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            fontWeight: '500',
+            fontSize: '15px',
+            marginTop: '8px'
+        },
+        gameId: {
+            fontSize: '11px',
+            color: '#4b5563',
+            fontFamily: 'monospace',
+            marginTop: '16px',
+            wordBreak: 'break-all'
+        },
+        loadingScreen: {
+            minHeight: '100vh',
+            backgroundColor: '#111827',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#f3f4f6'
+        },
+        errorScreen: {
+            minHeight: '100vh',
+            backgroundColor: '#111827',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#f3f4f6',
+            gap: '16px'
+        }
+    };
+
+    // Responsive grid for larger screens
+    const gridStyle = {
+        ...styles.grid,
+        ...(window.innerWidth >= 1024 ? { gridTemplateColumns: '2fr 1fr' } : {})
+    };
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">
-                <div className="animate-pulse">Loading Game...</div>
+            <div style={styles.loadingScreen}>
+                <div>Loading Game...</div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white gap-4">
-                <div className="text-red-400 text-xl">{error}</div>
-                <Link to="/" className="text-blue-400 hover:underline">← Back to Dashboard</Link>
+            <div style={styles.errorScreen}>
+                <div style={{ color: '#f87171', fontSize: '20px' }}>{error}</div>
+                <button
+                    onClick={() => navigate('/')}
+                    style={{ color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                    ← Back to Dashboard
+                </button>
             </div>
         );
     }
@@ -117,29 +195,34 @@ const GamePage = () => {
     const isGameOver = gameState?.status === 'COMPLETED' || gameState?.status === 'mate' || gameState?.status === 'draw' || gameState?.result !== 'undecided';
 
     return (
-        <div className="min-h-screen bg-gray-950 text-white p-4 md:p-8">
-            <div className="max-w-7xl mx-auto">
-                <Link to="/" className="inline-block text-gray-400 hover:text-white mb-6 transition-colors">
+        <div style={styles.page}>
+            <div style={styles.container}>
+                <button
+                    onClick={() => navigate('/')}
+                    style={styles.backBtn}
+                    onMouseOver={(e) => { e.currentTarget.style.borderColor = '#9ca3af'; e.currentTarget.style.color = '#ffffff'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.borderColor = '#4b5563'; e.currentTarget.style.color = '#9ca3af'; }}
+                >
                     ← Back to Dashboard
-                </Link>
+                </button>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column: Board */}
-                    <div className="lg:col-span-2 flex justify-center lg:justify-end">
+                <div style={gridStyle}>
+                    {/* Board Column */}
+                    <div style={styles.boardColumn}>
                         <Board
                             game={game}
                             onPieceDrop={onPieceDrop}
                             orientation={gameState?.color === 'black' ? 'black' : 'white'}
                             gameOver={isGameOver ? {
-                                winner: gameState.result === 'win' ? (gameState.moves.length % 2 !== 0 ? 'White' : 'Black') : null, // Rough estimation, better if backend sends winner
+                                winner: gameState.result === 'win' ? (gameState.moves?.length % 2 !== 0 ? 'White' : 'Black') : null,
                                 result: gameState.result,
                                 reason: gameState.end_reason
                             } : null}
                         />
                     </div>
 
-                    {/* Right Column: Info & History */}
-                    <div className="lg:col-span-1 space-y-4">
+                    {/* Info Column */}
+                    <div style={styles.infoColumn}>
                         <GameInfo
                             game={game}
                             status={gameState?.status}
@@ -147,14 +230,22 @@ const GamePage = () => {
                         />
 
                         {aiThinking && (
-                            <div className="bg-blue-900/30 border border-blue-500/30 text-blue-200 px-4 py-2 rounded animate-pulse">
-                                AI is thinking...
+                            <div style={styles.aiThinking}>
+                                🤖 AI is thinking...
                             </div>
                         )}
 
                         <MoveHistory history={game.history({ verbose: true })} />
 
-                        <div className="text-xs text-gray-600 font-mono mt-4 break-all">
+                        <button
+                            style={styles.resignBtn}
+                            onMouseOver={(e) => { e.currentTarget.style.borderColor = '#f87171'; e.currentTarget.style.color = '#f87171'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#4b5563'; e.currentTarget.style.color = '#9ca3af'; }}
+                        >
+                            Resign Game
+                        </button>
+
+                        <div style={styles.gameId}>
                             GAME ID: {gameId}
                         </div>
                     </div>
